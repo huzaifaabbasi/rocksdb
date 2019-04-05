@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include <iostream>
 #include <list>
 #include <map>
 #include <memory>
@@ -56,6 +57,8 @@ extern const std::string kHashIndexPrefixesBlock;
 extern const std::string kHashIndexPrefixesMetadataBlock;
 
 typedef BlockBasedTableOptions::IndexType IndexType;
+using TimePoint = std::chrono::time_point<std::chrono::system_clock,
+            std::chrono::nanoseconds>;
 
 // Without anonymous namespace here, we fail the warning -Wmissing-prototypes
 namespace {
@@ -707,6 +710,13 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
                                            CompressionType type,
                                            BlockHandle* handle,
                                            bool is_data_block) {
+  static uint64_t count = 0;
+  static std::chrono::duration<double, std::ratio<1, 1000000000> > maxim;
+  static std::chrono::duration<double, std::ratio<1, 1000000000> > total_time;
+  TimePoint st = std::chrono::system_clock::now();
+  auto bsize = block_contents.size();
+  static unsigned long maxim_size = 0;
+
   Rep* r = rep_;
   StopWatch sw(r->ioptions.env, r->ioptions.statistics, WRITE_RAW_BLOCK_MICROS);
   handle->set_offset(r->offset);
@@ -771,6 +781,21 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
         }
       }
     }
+  }
+  TimePoint en = std::chrono::system_clock::now();
+  auto diff = (en - st)/(bsize*1.0);
+  if(diff > maxim)
+      maxim = diff, maxim_size = bsize;
+  total_time += diff;
+  count++;
+  if(count == 10000)
+  {
+      std::stringstream b;
+      b<<std::endl<<"Maximum "<<maxim.count()<<" DATASIZE "<<maxim_size<<" AVERAGE "<<total_time.count()/10000.0<<std::endl<<std::endl;
+      maxim =  std::chrono::duration<double, std::ratio<1, 1000000000> >::zero();
+      total_time =  std::chrono::duration<double, std::ratio<1, 1000000000> >::zero();
+      std::cout<<b.str();
+      count = 0;
   }
 }
 
