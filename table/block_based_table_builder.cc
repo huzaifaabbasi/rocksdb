@@ -723,6 +723,7 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
   handle->set_size(block_contents.size());
   assert(r->status.ok());
   r->status = r->file->Append(block_contents);
+  r->file->Flush();
   if (r->status.ok()) {
     char trailer[kBlockTrailerSize];
     trailer[0] = type;
