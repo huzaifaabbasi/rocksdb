@@ -46,6 +46,19 @@ TableBuilder* NewTableBuilder(
     const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
         int_tbl_prop_collector_factories,
     uint32_t column_family_id, const std::string& column_family_name,
+    WritableFileWriter* file, WritableFileWriter* file1, WritableFileWriter* file2,
+    WritableFileWriter* file3,WritableFileWriter* file4, const CompressionType compression_type,
+    const uint64_t sample_for_compression,
+    const CompressionOptions& compression_opts, int level,
+    const bool skip_filters = false, const uint64_t creation_time = 0,
+    const uint64_t oldest_key_time = 0, const uint64_t target_file_size = 0);
+
+TableBuilder* NewTableBuilder(
+    const ImmutableCFOptions& options, const MutableCFOptions& moptions,
+    const InternalKeyComparator& internal_comparator,
+    const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
+    int_tbl_prop_collector_factories,
+    uint32_t column_family_id, const std::string& column_family_name,
     WritableFileWriter* file, const CompressionType compression_type,
     const uint64_t sample_for_compression,
     const CompressionOptions& compression_opts, int level,

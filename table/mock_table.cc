@@ -85,6 +85,17 @@ TableBuilder* MockTableFactory::NewTableBuilder(
   return new MockTableBuilder(id, &file_system_);
 }
 
+TableBuilder* MockTableFactory::NewTableBuilder(
+        const TableBuilderOptions& /*table_builder_options*/,
+        uint32_t /*column_family_id*/, WritableFileWriter* file,
+        WritableFileWriter* file1, WritableFileWriter* file2,
+        WritableFileWriter* file3, WritableFileWriter* file4) const {
+  uint32_t id = GetAndWriteNextID(file);
+  if(file1 && file2 && file3 && file4){
+  }
+  return new MockTableBuilder(id, &file_system_);
+}
+
 Status MockTableFactory::CreateMockTable(Env* env, const std::string& fname,
                                          stl_wrappers::KVMap file_contents) {
   std::unique_ptr<WritableFile> file;

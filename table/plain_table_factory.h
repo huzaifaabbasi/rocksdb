@@ -156,6 +156,11 @@ class PlainTableFactory : public TableFactory {
       const TableBuilderOptions& table_builder_options,
       uint32_t column_family_id, WritableFileWriter* file) const override;
 
+  TableBuilder* NewTableBuilder(
+          const TableBuilderOptions& table_builder_options,
+          uint32_t column_family_id, WritableFileWriter* file, WritableFileWriter* file1,
+          WritableFileWriter* file2, WritableFileWriter* file3, WritableFileWriter* file4) const override;
+
   std::string GetPrintableTableOptions() const override;
 
   const PlainTableOptions& table_options() const;

@@ -46,7 +46,8 @@ TableBuilder* NewTableBuilder(
     const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
         int_tbl_prop_collector_factories,
     uint32_t column_family_id, const std::string& column_family_name,
-    WritableFileWriter* file, const CompressionType compression_type,
+    WritableFileWriter* file, WritableFileWriter* file1, WritableFileWriter* file2,
+    WritableFileWriter* file3, WritableFileWriter* file4, const CompressionType compression_type,
     uint64_t sample_for_compression, const CompressionOptions& compression_opts,
     int level, const bool skip_filters, const uint64_t creation_time,
     const uint64_t oldest_key_time, const uint64_t target_file_size) {
@@ -59,7 +60,29 @@ TableBuilder* NewTableBuilder(
                           sample_for_compression, compression_opts,
                           skip_filters, column_family_name, level,
                           creation_time, oldest_key_time, target_file_size),
-      column_family_id, file);
+      column_family_id, file, file1, file2, file3, file4);
+}
+
+TableBuilder* NewTableBuilder(
+        const ImmutableCFOptions& ioptions, const MutableCFOptions& moptions,
+        const InternalKeyComparator& internal_comparator,
+        const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
+        int_tbl_prop_collector_factories,
+        uint32_t column_family_id, const std::string& column_family_name,
+        WritableFileWriter* file, const CompressionType compression_type,
+        uint64_t sample_for_compression, const CompressionOptions& compression_opts,
+        int level, const bool skip_filters, const uint64_t creation_time,
+        const uint64_t oldest_key_time, const uint64_t target_file_size) {
+    assert((column_family_id ==
+            TablePropertiesCollectorFactory::Context::kUnknownColumnFamily) ==
+           column_family_name.empty());
+    return ioptions.table_factory->NewTableBuilder(
+            TableBuilderOptions(ioptions, moptions, internal_comparator,
+                                int_tbl_prop_collector_factories, compression_type,
+                                sample_for_compression, compression_opts,
+                                skip_filters, column_family_name, level,
+                                creation_time, oldest_key_time, target_file_size),
+            column_family_id, file);
 }
 
 Status BuildTable(
@@ -106,6 +129,10 @@ Status BuildTable(
   if (iter->Valid() || !range_del_agg->IsEmpty()) {
     TableBuilder* builder;
     std::unique_ptr<WritableFileWriter> file_writer;
+    std::unique_ptr<WritableFileWriter> file_writer1;
+    std::unique_ptr<WritableFileWriter> file_writer2;
+    std::unique_ptr<WritableFileWriter> file_writer3;
+    std::unique_ptr<WritableFileWriter> file_writer4;
     // Currently we only enable dictionary compression during compaction to the
     // bottommost level.
     CompressionOptions compression_opts_for_flush(compression_opts);
@@ -113,11 +140,19 @@ Status BuildTable(
     compression_opts_for_flush.zstd_max_train_bytes = 0;
     {
       std::unique_ptr<WritableFile> file;
+        std::unique_ptr<WritableFile> file1;
+        std::unique_ptr<WritableFile> file2;
+        std::unique_ptr<WritableFile> file3;
+        std::unique_ptr<WritableFile> file4;
 #ifndef NDEBUG
       bool use_direct_writes = env_options.use_direct_writes;
       TEST_SYNC_POINT_CALLBACK("BuildTable:create_file", &use_direct_writes);
 #endif  // !NDEBUG
       s = NewWritableFile(env, fname, &file, env_options);
+      s = NewWritableFile(env, fname + "1.sst" , &file1, env_options);
+      s = NewWritableFile(env, fname + "2.sst" , &file2, env_options);
+      s = NewWritableFile(env, fname + "3.sst" , &file3, env_options);
+      s = NewWritableFile(env, fname + "4.sst" , &file4, env_options);
       if (!s.ok()) {
         EventHelpers::LogAndNotifyTableFileCreationFinished(
             event_logger, ioptions.listeners, dbname, column_family_name, fname,
@@ -127,13 +162,43 @@ Status BuildTable(
       file->SetIOPriority(io_priority);
       file->SetWriteLifeTimeHint(write_hint);
 
+      file1->SetIOPriority(io_priority);
+      file1->SetWriteLifeTimeHint(write_hint);
+
+      file2->SetIOPriority(io_priority);
+      file2->SetWriteLifeTimeHint(write_hint);
+
+      file3->SetIOPriority(io_priority);
+      file3->SetWriteLifeTimeHint(write_hint);
+
+      file4->SetIOPriority(io_priority);
+      file4->SetWriteLifeTimeHint(write_hint);
+
       file_writer.reset(
           new WritableFileWriter(std::move(file), fname, env_options, env,
                                  ioptions.statistics, ioptions.listeners));
+
+      file_writer1.reset(
+          new WritableFileWriter(std::move(file1), fname + "1.sst", env_options, env,
+                                 ioptions.statistics, ioptions.listeners));
+
+      file_writer2.reset(
+          new WritableFileWriter(std::move(file2), fname + "2.sst", env_options, env,
+                                 ioptions.statistics, ioptions.listeners));
+
+      file_writer3.reset(
+          new WritableFileWriter(std::move(file3), fname + "3.sst", env_options, env,
+                                 ioptions.statistics, ioptions.listeners));
+
+      file_writer4.reset(
+          new WritableFileWriter(std::move(file4), fname + "4.sst", env_options, env,
+                                 ioptions.statistics, ioptions.listeners));
+
       builder = NewTableBuilder(
           ioptions, mutable_cf_options, internal_comparator,
           int_tbl_prop_collector_factories, column_family_id,
-          column_family_name, file_writer.get(), compression,
+          column_family_name, file_writer.get(), file_writer1.get(), file_writer2.get(),
+          file_writer3.get(), file_writer4.get(), compression,
           sample_for_compression, compression_opts_for_flush, level,
           false /* skip_filters */, creation_time, oldest_key_time);
     }

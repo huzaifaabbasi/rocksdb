@@ -48,6 +48,26 @@ TableBuilder* PlainTableFactory::NewTableBuilder(
       table_options_.store_index_in_file);
 }
 
+TableBuilder* PlainTableFactory::NewTableBuilder(
+        const TableBuilderOptions& table_builder_options, uint32_t column_family_id,
+        WritableFileWriter* file, WritableFileWriter* file1, WritableFileWriter* file2,
+        WritableFileWriter* file3, WritableFileWriter* file4) const {
+  if(file1 && file2 && file3 && file4){
+  }
+  // Ignore the skip_filters flag. PlainTable format is optimized for small
+  // in-memory dbs. The skip_filters optimization is not useful for plain
+  // tables
+  //
+  return new PlainTableBuilder(
+          table_builder_options.ioptions, table_builder_options.moptions,
+          table_builder_options.int_tbl_prop_collector_factories, column_family_id,
+          file, table_options_.user_key_len, table_options_.encoding_type,
+          table_options_.index_sparseness, table_options_.bloom_bits_per_key,
+          table_builder_options.column_family_name, 6,
+          table_options_.huge_page_tlb_size, table_options_.hash_table_ratio,
+          table_options_.store_index_in_file);
+}
+
 std::string PlainTableFactory::GetPrintableTableOptions() const {
   std::string ret;
   ret.reserve(20000);

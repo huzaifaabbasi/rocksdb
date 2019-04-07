@@ -60,7 +60,13 @@ class BlockBasedTableFactory : public TableFactory {
       const TableBuilderOptions& table_builder_options,
       uint32_t column_family_id, WritableFileWriter* file) const override;
 
-  // Sanitizes the specified DB Options.
+  TableBuilder* NewTableBuilder(
+      const TableBuilderOptions& table_builder_options,
+      uint32_t column_family_id, WritableFileWriter* file,
+      WritableFileWriter* file1, WritableFileWriter* file2,
+      WritableFileWriter* file3, WritableFileWriter* file4) const;
+
+    // Sanitizes the specified DB Options.
   Status SanitizeOptions(const DBOptions& db_opts,
                          const ColumnFamilyOptions& cf_opts) const override;
 

@@ -74,6 +74,16 @@ TableBuilder* AdaptiveTableFactory::NewTableBuilder(
                                                   column_family_id, file);
 }
 
+TableBuilder* AdaptiveTableFactory::NewTableBuilder(
+    const TableBuilderOptions& table_builder_options,
+    uint32_t column_family_id, WritableFileWriter* file,
+    WritableFileWriter* file1, WritableFileWriter* file2,
+    WritableFileWriter* file3, WritableFileWriter* file4) const {
+  if(file1 && file2 && file3 && file4){
+  }
+  return NewTableBuilder(table_builder_options, column_family_id, file);
+}
+
 std::string AdaptiveTableFactory::GetPrintableTableOptions() const {
   std::string ret;
   ret.reserve(20000);

@@ -225,6 +225,26 @@ TableBuilder* BlockBasedTableFactory::NewTableBuilder(
   return table_builder;
 }
 
+TableBuilder* BlockBasedTableFactory::NewTableBuilder(
+        const TableBuilderOptions& table_builder_options, uint32_t column_family_id,
+        WritableFileWriter* file, WritableFileWriter* file1, WritableFileWriter* file2,
+        WritableFileWriter* file3, WritableFileWriter* file4) const {
+  auto table_builder = new BlockBasedTableBuilder(
+          table_builder_options.ioptions, table_builder_options.moptions,
+          table_options_, table_builder_options.internal_comparator,
+          table_builder_options.int_tbl_prop_collector_factories, column_family_id,
+          file, file1, file2, file3, file4, table_builder_options.compression_type,
+          table_builder_options.sample_for_compression,
+          table_builder_options.compression_opts,
+          table_builder_options.skip_filters,
+          table_builder_options.column_family_name,
+          table_builder_options.creation_time,
+          table_builder_options.oldest_key_time,
+          table_builder_options.target_file_size);
+
+  return table_builder;
+}
+
 Status BlockBasedTableFactory::SanitizeOptions(
     const DBOptions& /*db_opts*/, const ColumnFamilyOptions& cf_opts) const {
   if (table_options_.index_type == BlockBasedTableOptions::kHashSearch &&

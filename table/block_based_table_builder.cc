@@ -285,6 +285,10 @@ struct BlockBasedTableBuilder::Rep {
   const BlockBasedTableOptions table_options;
   const InternalKeyComparator& internal_comparator;
   WritableFileWriter* file;
+  WritableFileWriter* file1;
+  WritableFileWriter* file2;
+  WritableFileWriter* file3;
+  WritableFileWriter* file4;
   uint64_t offset = 0;
   Status status;
   size_t alignment;
@@ -439,6 +443,93 @@ struct BlockBasedTableBuilder::Rep {
     }
   }
 
+  Rep(const ImmutableCFOptions& _ioptions, const MutableCFOptions& _moptions,
+      const BlockBasedTableOptions& table_opt,
+      const InternalKeyComparator& icomparator,
+      const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
+      int_tbl_prop_collector_factories,
+      uint32_t _column_family_id, WritableFileWriter* f, WritableFileWriter* f1,
+      WritableFileWriter* f2, WritableFileWriter* f3, WritableFileWriter* f4,
+      const CompressionType _compression_type,
+      const uint64_t _sample_for_compression,
+      const CompressionOptions& _compression_opts, const bool skip_filters,
+      const std::string& _column_family_name, const uint64_t _creation_time,
+      const uint64_t _oldest_key_time, const uint64_t _target_file_size)
+          : ioptions(_ioptions),
+            moptions(_moptions),
+            table_options(table_opt),
+            internal_comparator(icomparator),
+            file(f),
+            file1(f1),
+            file2(f2),
+            file3(f3),
+            file4(f4),
+            alignment(table_options.block_align
+                      ? std::min(table_options.block_size, kDefaultPageSize)
+                      : 0),
+            data_block(table_options.block_restart_interval,
+                       table_options.use_delta_encoding,
+                       false /* use_value_delta_encoding */,
+                       icomparator.user_comparator()
+                               ->CanKeysWithDifferentByteContentsBeEqual()
+                       ? BlockBasedTableOptions::kDataBlockBinarySearch
+                       : table_options.data_block_index_type,
+                       table_options.data_block_hash_table_util_ratio),
+            range_del_block(1 /* block_restart_interval */),
+            internal_prefix_transform(_moptions.prefix_extractor.get()),
+            compression_type(_compression_type),
+            sample_for_compression(_sample_for_compression),
+            compression_opts(_compression_opts),
+            compression_dict(),
+            compression_ctx(_compression_type),
+            verify_dict(),
+            state((_compression_opts.max_dict_bytes > 0) ? State::kBuffered
+                                                         : State::kUnbuffered),
+            use_delta_encoding_for_index_values(table_opt.format_version >= 4 &&
+                                                !table_opt.block_align),
+            compressed_cache_key_prefix_size(0),
+            flush_block_policy(
+                    table_options.flush_block_policy_factory->NewFlushBlockPolicy(
+                            table_options, data_block)),
+            column_family_id(_column_family_id),
+            column_family_name(_column_family_name),
+            creation_time(_creation_time),
+            oldest_key_time(_oldest_key_time),
+            target_file_size(_target_file_size) {
+    if (table_options.index_type ==
+        BlockBasedTableOptions::kTwoLevelIndexSearch) {
+      p_index_builder_ = PartitionedIndexBuilder::CreateIndexBuilder(
+              &internal_comparator, use_delta_encoding_for_index_values,
+              table_options);
+      index_builder.reset(p_index_builder_);
+    } else {
+      index_builder.reset(IndexBuilder::CreateIndexBuilder(
+              table_options.index_type, &internal_comparator,
+              &this->internal_prefix_transform, use_delta_encoding_for_index_values,
+              table_options));
+    }
+    if (skip_filters) {
+      filter_builder = nullptr;
+    } else {
+      filter_builder.reset(CreateFilterBlockBuilder(
+              _ioptions, _moptions, table_options,
+              use_delta_encoding_for_index_values, p_index_builder_));
+    }
+
+    for (auto& collector_factories : *int_tbl_prop_collector_factories) {
+      table_properties_collectors.emplace_back(
+              collector_factories->CreateIntTblPropCollector(column_family_id));
+    }
+    table_properties_collectors.emplace_back(
+            new BlockBasedTablePropertiesCollector(
+                    table_options.index_type, table_options.whole_key_filtering,
+                    _moptions.prefix_extractor != nullptr));
+    if (table_options.verify_compression) {
+      verify_ctx.reset(new UncompressionContext(UncompressionContext::NoCache(),
+                                                compression_type));
+    }
+  }
+
   Rep(const Rep&) = delete;
   Rep& operator=(const Rep&) = delete;
 
@@ -483,6 +574,49 @@ BlockBasedTableBuilder::BlockBasedTableBuilder(
         table_options.block_cache_compressed.get(), file->writable_file(),
         &rep_->compressed_cache_key_prefix[0],
         &rep_->compressed_cache_key_prefix_size);
+  }
+}
+
+
+BlockBasedTableBuilder::BlockBasedTableBuilder(
+        const ImmutableCFOptions& ioptions, const MutableCFOptions& moptions,
+        const BlockBasedTableOptions& table_options,
+        const InternalKeyComparator& internal_comparator,
+        const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
+        int_tbl_prop_collector_factories,
+        uint32_t column_family_id, WritableFileWriter* file, WritableFileWriter* file1,
+        WritableFileWriter* file2, WritableFileWriter* file3, WritableFileWriter* file4,
+        const CompressionType compression_type,
+        const uint64_t sample_for_compression,
+        const CompressionOptions& compression_opts, const bool skip_filters,
+        const std::string& column_family_name, const uint64_t creation_time,
+        const uint64_t oldest_key_time, const uint64_t target_file_size) {
+  BlockBasedTableOptions sanitized_table_options(table_options);
+  if (sanitized_table_options.format_version == 0 &&
+      sanitized_table_options.checksum != kCRC32c) {
+    ROCKS_LOG_WARN(
+            ioptions.info_log,
+            "Silently converting format_version to 1 because checksum is "
+            "non-default");
+    // silently convert format_version to 1 to keep consistent with current
+    // behavior
+    sanitized_table_options.format_version = 1;
+  }
+
+  rep_ = new Rep(
+          ioptions, moptions, sanitized_table_options, internal_comparator,
+          int_tbl_prop_collector_factories, column_family_id, file, file1, file2, file3, file4,
+          compression_type, sample_for_compression, compression_opts, skip_filters,
+          column_family_name, creation_time, oldest_key_time, target_file_size);
+
+  if (rep_->filter_builder != nullptr) {
+    rep_->filter_builder->StartBlock(0);
+  }
+  if (table_options.block_cache_compressed.get() != nullptr) {
+    BlockBasedTable::GenerateCachePrefix(
+            table_options.block_cache_compressed.get(), file->writable_file(),
+            &rep_->compressed_cache_key_prefix[0],
+            &rep_->compressed_cache_key_prefix_size);
   }
 }
 
@@ -722,7 +856,12 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
   assert(r->status.ok());
+  std::cout<<r->file->file_name()<<std::endl;
   r->status = r->file->Append(block_contents);
+  r->file1->Append(block_contents);
+  r->file2->Append(block_contents);
+  r->file3->Append(block_contents);
+  r->file4->Append(block_contents);
   r->file->Flush();
   if (r->status.ok()) {
     char trailer[kBlockTrailerSize];

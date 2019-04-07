@@ -492,6 +492,12 @@ class TableFactory {
       const TableBuilderOptions& table_builder_options,
       uint32_t column_family_id, WritableFileWriter* file) const = 0;
 
+  virtual TableBuilder* NewTableBuilder(
+          const TableBuilderOptions& table_builder_options,
+          uint32_t column_family_id, WritableFileWriter* file,
+          WritableFileWriter* file1, WritableFileWriter* file2,
+          WritableFileWriter* file3, WritableFileWriter* file4) const = 0;
+
   // Sanitizes the specified DB Options and ColumnFamilyOptions.
   //
   // If the function cannot find a way to sanitize the input DB Options,

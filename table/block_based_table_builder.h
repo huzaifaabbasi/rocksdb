@@ -50,6 +50,20 @@ class BlockBasedTableBuilder : public TableBuilder {
       const std::string& column_family_name, const uint64_t creation_time = 0,
       const uint64_t oldest_key_time = 0, const uint64_t target_file_size = 0);
 
+  BlockBasedTableBuilder(
+          const ImmutableCFOptions& ioptions, const MutableCFOptions& moptions,
+          const BlockBasedTableOptions& table_options,
+          const InternalKeyComparator& internal_comparator,
+          const std::vector<std::unique_ptr<IntTblPropCollectorFactory>>*
+          int_tbl_prop_collector_factories,
+          uint32_t column_family_id, WritableFileWriter* file, WritableFileWriter* file1,
+          WritableFileWriter* file2, WritableFileWriter* file3, WritableFileWriter* file4,
+          const CompressionType compression_type,
+          const uint64_t sample_for_compression,
+          const CompressionOptions& compression_opts, const bool skip_filters,
+          const std::string& column_family_name, const uint64_t creation_time = 0,
+          const uint64_t oldest_key_time = 0, const uint64_t target_file_size = 0);
+
   // REQUIRES: Either Finish() or Abandon() has been called.
   ~BlockBasedTableBuilder();
 

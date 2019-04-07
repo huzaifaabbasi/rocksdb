@@ -43,6 +43,26 @@ TableBuilder* CuckooTableFactory::NewTableBuilder(
       column_family_id, table_builder_options.column_family_name);
 }
 
+TableBuilder* CuckooTableFactory::NewTableBuilder(
+        const TableBuilderOptions& table_builder_options, uint32_t column_family_id,
+        WritableFileWriter* file, WritableFileWriter* file1, WritableFileWriter* file2,
+        WritableFileWriter* file3, WritableFileWriter* file4) const {
+    if(file1 && file2 && file3 && file4){
+    }
+  // Ignore the skipFilters flag. Does not apply to this file format
+  //
+
+  // TODO: change builder to take the option struct
+  return new CuckooTableBuilder(
+          file, table_options_.hash_table_ratio, 64,
+          table_options_.max_search_depth,
+          table_builder_options.internal_comparator.user_comparator(),
+          table_options_.cuckoo_block_size, table_options_.use_module_hash,
+          table_options_.identity_as_first_hash, nullptr /* get_slice_hash */,
+          column_family_id, table_builder_options.column_family_name);
+}
+
+
 std::string CuckooTableFactory::GetPrintableTableOptions() const {
   std::string ret;
   ret.reserve(2000);

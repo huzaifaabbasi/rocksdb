@@ -163,6 +163,17 @@ class DummyTableFactory : public TableFactory {
     return nullptr;
   }
 
+  TableBuilder* NewTableBuilder(
+          const TableBuilderOptions& /*table_builder_options*/,
+          uint32_t /*column_family_id*/,
+          WritableFileWriter* /*file*/,
+          WritableFileWriter* /*file1*/,
+          WritableFileWriter* /*file2*/,
+          WritableFileWriter* /*file3*/,
+          WritableFileWriter* /*file4*/) const override {
+    return nullptr;
+  }
+
   Status SanitizeOptions(
       const DBOptions& /*db_opts*/,
       const ColumnFamilyOptions& /*cf_opts*/) const override {
