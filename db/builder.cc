@@ -9,9 +9,12 @@
 
 #include "db/builder.h"
 
+#include <iostream>
+#include <typeinfo>
 #include <algorithm>
 #include <deque>
 #include <vector>
+#include <isa-l.h>
 
 #include "db/compaction_iterator.h"
 #include "db/dbformat.h"
@@ -149,13 +152,38 @@ Status BuildTable(
       TEST_SYNC_POINT_CALLBACK("BuildTable:create_file", &use_direct_writes);
 #endif  // !NDEBUG
       s = NewWritableFile(env, fname, &file, env_options);
-      s = NewWritableFile(env, fname + "1.sst" , &file1, env_options);
-      s = NewWritableFile(env, fname + "2.sst" , &file2, env_options);
-      s = NewWritableFile(env, fname + "3.sst" , &file3, env_options);
-      s = NewWritableFile(env, fname + "4.sst" , &file4, env_options);
       if (!s.ok()) {
         EventHelpers::LogAndNotifyTableFileCreationFinished(
             event_logger, ioptions.listeners, dbname, column_family_name, fname,
+            job_id, meta->fd, tp, reason, s);
+        return s;
+      }
+      s = NewWritableFile(env, "/media/nvme0" + fname, &file1, env_options);
+      if (!s.ok()) {
+        EventHelpers::LogAndNotifyTableFileCreationFinished(
+            event_logger, ioptions.listeners, dbname, column_family_name,"/media/nvme0" + fname,
+            job_id, meta->fd, tp, reason, s);
+	std::cout<<typeid(*env).name()<<std::endl;
+        return s;
+      }
+      s = NewWritableFile(env, "/media/nvme1" + fname, &file2, env_options);
+      if (!s.ok()) {
+        EventHelpers::LogAndNotifyTableFileCreationFinished(
+            event_logger, ioptions.listeners, dbname, column_family_name, "/media/nvme1" + fname,
+            job_id, meta->fd, tp, reason, s);
+        return s;
+      }
+      s = NewWritableFile(env, "/media/nvme2" + fname, &file3, env_options);
+      if (!s.ok()) {
+        EventHelpers::LogAndNotifyTableFileCreationFinished(
+            event_logger, ioptions.listeners, dbname, column_family_name, "/media/nvme2" + fname,
+            job_id, meta->fd, tp, reason, s);
+        return s;
+      }
+      s = NewWritableFile(env, "/media/nvme3" + fname, &file4, env_options);
+      if (!s.ok()) {
+        EventHelpers::LogAndNotifyTableFileCreationFinished(
+            event_logger, ioptions.listeners, dbname, column_family_name, "/media/nvme3" + fname,
             job_id, meta->fd, tp, reason, s);
         return s;
       }

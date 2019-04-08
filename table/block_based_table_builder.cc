@@ -856,7 +856,6 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
   assert(r->status.ok());
-  std::cout<<r->file->file_name()<<std::endl;
   r->status = r->file->Append(block_contents);
   r->file1->Append(block_contents);
   r->file2->Append(block_contents);
