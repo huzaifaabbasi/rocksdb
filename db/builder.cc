@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <deque>
 #include <vector>
-#include <isa-l.h>
 
 #include "db/compaction_iterator.h"
 #include "db/dbformat.h"

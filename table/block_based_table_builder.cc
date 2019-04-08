@@ -19,6 +19,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <isa-l.h>
 
 #include "db/dbformat.h"
 
@@ -840,6 +841,21 @@ void BlockBasedTableBuilder::WriteBlock(const Slice& raw_block_contents,
   }
 }
 
+struct prealloc_encode
+{
+    prealloc_encode(int m, int k);
+
+    prealloc_encode(const prealloc_encode&) = delete;
+    prealloc_encode(prealloc_encode&&)      = default;
+
+    std::vector<uint8_t> encode_matrix;
+    std::vector<uint8_t> table;
+};
+
+prealloc_encode::prealloc_encode(int m, int k) : encode_matrix(m * k), table(32 * k * (m - k))
+{
+}
+
 void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
                                            CompressionType type,
                                            BlockHandle* handle,
@@ -856,12 +872,44 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
   handle->set_offset(r->offset);
   handle->set_size(block_contents.size());
   assert(r->status.ok());
-  r->status = r->file->Append(block_contents);
-  r->file1->Append(block_contents);
-  r->file2->Append(block_contents);
-  r->file3->Append(block_contents);
-  r->file4->Append(block_contents);
-  r->file->Flush();
+  size_t len = (bsize + 3)/4;
+  int m = 4;
+  int k = 3;
+  std::vector<size_t> a;
+  uint8_t** sources = (uint8_t**)malloc(m * sizeof(uint8_t*));
+  for (int i = 0; i < m; ++i)
+  {
+      sources[i] = (uint8_t*)malloc(len * sizeof(uint8_t));
+      if (i < k)
+      {
+          size_t x = len < bsize - i * len ? len : bsize - i * len;
+          memcpy(&sources[i], block_contents.data() + (i * len < bsize ? i * len : bsize),
+                  x);
+          a.push_back(x);
+      }
+  }
+  prealloc_encode prealloc(m, k);
+  gf_gen_cauchy1_matrix(prealloc.encode_matrix.data(), m, k);
+  ec_init_tables(k, m - k, &prealloc.encode_matrix[k * k], prealloc.table.data());
+  ec_encode_data(len, k, m - k, prealloc.table.data(), sources, &sources[k]);
+  Slice s1;
+  s1.data_ = (char*)sources[0];
+  s1.size_ = a[0];
+  Slice s2;
+  s2.data_ = (char*)sources[1];
+  s2.size_ = a[1];
+  Slice s3;
+  s3.data_ = (char*)sources[2];
+  s3.size_ = a[2];
+  Slice s4;
+  s4.data_ = (char*)sources[3];
+  s4.size_ = a[3];
+//  r->status = r->file->Append(block_contents);
+  r->status = r->file1->Append(s1);
+  r->file2->Append(s2);
+  r->file3->Append(s3);
+  r->file4->Append(s4);
+//  r->file->Flush();
   if (r->status.ok()) {
     char trailer[kBlockTrailerSize];
     trailer[0] = type;
